@@ -131,7 +131,7 @@ LIULI_INSTANCE_TAG
 ### 环境要求
 
 - Windows 10 / 11；
-- Node.js **≥ 22.12**；
+- Node.js **≥ 22.12**；(桌面端不用)
 - 一个可用的 Minecraft 游戏目录；
 - Java 运行时（可由琉璃自动准备）。
 
