@@ -2,190 +2,303 @@
 
 > Minecraft，透过一块玻璃看见。
 
-琉璃是一个以 **Apple Liquid Glass** 为视觉语言的 Minecraft 启动器。它用本地 Node 启动内核读取 HMCL / 官方启动器留下的游戏目录，可以直接识别你已经安装的版本、隔离实例、Java 与存档，不要求迁移任何文件。
+琉璃是一个以 **Apple Liquid Glass** 为视觉语言的 Minecraft 启动器。它由 **React + TypeScript** 前端和 **Node.js 本地启动内核**组成，并提供浏览器版与 Electron 透明桌面版。
 
-它同时提供两种形态：**浏览器版**（普通网页）与**桌面透明版**（Electron 无边框透明窗口）。桌面版会实时捕获窗口后方的真实桌面（包括 Lively、桌面图标和其他窗口），并把琉璃自身从捕获中排除，再通过 CSS 模糊实现浏览器版同款的连续模糊滑杆；窗口边缘完全由 CSS 圆角裁切，不再使用会露出方形底边的系统亚克力。
+它不要求迁移游戏目录，可以直接识别 HMCL / 官方启动器留下的 `.minecraft`：
 
-功能骨架参考了 HMCL（分析版本：`HMCL-3.17.0.363.jar`）的实例模型、版本隔离、Java 匹配、依赖解析与启动参数构建；前端和本地内核均为本项目原创的 TypeScript / JavaScript 实现，没有复制 HMCL 的 Java 源代码，也没有分发 HMCL JAR。
+- 已安装版本与隔离实例；
+- Java 运行时；
+- 存档、截图、资源包、光影和模组；
+- 原版、Fabric、Quilt、Forge、NeoForge、OptiFine 实例。
 
 ---
 
-## 亮点
+## 核心特性
 
-- **真实桌面后景 + 连续模糊**
-  桌面版用屏幕捕获读取窗口后面真正发生的事情：Lively、桌面图标、其他窗口都会出现在玻璃后方。捕获前把琉璃窗口标记为“不参与捕获”，避免递归画面；捕获结果再交给 CSS `filter: blur()`，所以 **背景模糊滑杆真的会从 0 到 64 px 连续改变**。屏幕捕获仍读取整个显示器，但使用 `object-view-box` 只把窗口覆盖的那一块送进窗口渲染，不会把整张桌面缩放进玻璃。捕获上限读取显示器刷新率；窗口移动时通过窗口 bounds 事件 + 每帧几何同步、GPU `translate3d` 平移背景，避免拖动窗口时背景滞后。
-- **桌面端边缘**
-  不使用 Windows 亚克力、原生圆角或原生阴影，窗口只是一个完全透明的矩形容器；CSS 圆角玻璃面板直接铺满窗口。因此不会再出现方形亚克力底、矩形窗口边、外部留白或裁切台阶。
-- **无鼠标光圈、无光标残影**
-  移除了所有跟随指针的径向高光层，鼠标移动不会在玻璃上生成光圈或亮斑。桌面版同时隐藏系统光标并使用轻量自绘箭头，避免系统光标被一起捕获到后景画面里。
-- **完整的下载工作台**
-  下载中心现在包含「新游戏 → 游戏 / 整合包」和「游戏内容 → 模组 / 资源包 / 光影 / 世界」分类。模组、资源包和光影可从 Modrinth 直接安装到当前实例；整合包下载为 `.mrpack`；版本安装可以在官方源、BMCLAPI 镜像与自动回退之间切换。CurseForge 官方 API 需要 Key，配置后即可加入内容来源切换。
-- **液态玻璃设计系统**
-  多层半透明材质、**0–100% 玻璃浓度**、0–64 px 连续背景模糊、明暗双主题、四种强调色、弹簧式过渡和克制的动效。
-- **直接理解你的 HMCL 目录**
-  自动扫描 `.minecraft/versions`，识别 Fabric / Forge / NeoForge / Quilt / 原版；通过实例目录里的 `.hmcl`、`options.txt`、`saves` 判断版本隔离，从而正确使用每个实例自己的游戏目录和模组。
-- **真正的本地启动内核**
-  解析版本 JSON、OS 规则、libraries、natives、assets index、Java 版本，校验依赖并构建 JVM 命令；支持日志、失败提示、启动预检和启动状态。
-- **Mojang 版本下载与安装**
-  从官方 `launchermeta` 读取 900+ 个版本，下载核心、依赖库、资源索引和资源对象，自动复用已有缓存，校验 SHA-1，支持实时进度、取消与续传。
-- **本地优先 / 无遥测**
-  服务默认只绑定 `127.0.0.1`，并拒绝非本机 Host / Origin 的 API 请求。账户、设置与日志只保存在项目下的 `.liuli-data`；不会上传游戏目录、账户信息或桌面壁纸。
+### 液态玻璃与真实桌面后景
+
+桌面版使用完全透明的无边框 Electron 窗口，通过「排除自身的屏幕捕获 + CSS `filter: blur()`」实现真实桌面后景：
+
+- Lively 动态壁纸、桌面图标和其他窗口都会透过玻璃显示；
+- 背景模糊支持 **0–64 px 连续调节**；
+- 玻璃浓度支持 **0–100%**，并保留最低内容可读性底衬；
+- 窗口边缘由 CSS 圆角裁切，不使用会露出方形底边的系统亚克力；
+- 支持浅色 / 深色玻璃、四种强调色和动效开关；
+- 切出琉璃时自动暂停实时捕获，兼容 OBS 和外部截图；
+- 多显示器移动后自动重新选择捕获源。
+
+浏览器版无法创建透明窗口，会读取当前 Windows 壁纸作为背景；没有可读壁纸时回退到内置「极光山谷」。
+
+### 实例管理
+
+- 扫描 `versions/`，识别原版、Fabric、Quilt、Forge、NeoForge、OptiFine；
+- 通过 `.hmcl`、`options.txt`、`saves` 判断版本隔离；
+- 支持实例搜索、排序、筛选、切换、删除；
+- 新建实例可选择 Minecraft 版本、加载器、加载器版本，并自动校验/补齐完整安装；
+- 实例名重复会提示修改；
+- 支持手动最大内存、游戏设置、模组启停、资源包、光影、世界和目录管理。
+
+### 实例合并
+
+创建或首次启动时，琉璃会把 base / loader 的版本 JSON 合并进实例自己的 JSON：
+
+```text
+versions/<实例ID>/
+  <实例ID>.json       # 已合并，不再 inheritsFrom
+  <实例ID>.jar        # 已复制原版 client jar
+  .liuli-instance.json
+  mods/
+  config/
+  saves/
+```
+
+原版和 Loader 前置版本会写入 `.liuli-dependency.json` 并从实例列表隐藏，只保留一个实例卡。
+
+`libraries` 和 `assets` 仍按 HMCL 的方式共享，不会为每个实例复制数 GB 资源；当前实例不再依赖 base / loader 版本目录即可启动。
+
+已有未合并实例会在启动器启动时自动迁移，不删除原有 mods、config、saves。
+
+### 完整下载与加载器
+
+- 原版安装会校验 JSON、client jar、libraries、assets，缺什么补什么；
+- 支持官方源、BMCLAPI 镜像和自动回退；
+- 下载中心支持多任务并行，显示当前文件、文件数、字节数、阶段和百分比；
+- Fabric / Quilt 通过官方 meta 安装；
+- Forge / NeoForge 调用官方 installer；
+- NeoForge 元数据和 installer 在官方 Maven 不可达时自动回退 BMCLAPI；
+- OptiFine 从 BMCLAPI 获取版本列表和 installer，运行官方：
+
+```text
+java -cp OptiFine.jar optifine.Patcher <原版client.jar> <installer.jar> <输出.jar>
+```
+
+然后提取 launchwrapper，生成 OptiFine wrapper。
+
+如果某个 Minecraft 版本没有 OptiFine 发布版或预览版，界面不会伪造版本。
+
+### Java 运行时
+
+- 自动扫描本机 Java；
+- 按实例要求选择 Java 8 / 17 / 21 / 25；
+- 缺少运行时时通过 Azul Zulu API 下载并解压到游戏目录的 `runtime/zulu-<major>`；
+- 检测 Java `bin` 下的 `*.addon64`、ReShade、DLSS 注入组件；
+- 默认避开被注入的运行时，优先选择干净的同代或更高版本 Java。
+
+例如 Java 21 被 `renodx-dlss5.addon64` 注入时，琉璃会自动改用干净的 Java 25；如果必须使用 Java 21，可以手动删除/重命名该 addon。
+
+### 进程标签与游戏语言
+
+启动游戏时会给 JVM 挂上：
+
+```text
+LIULI_INSTANCE_ID
+LIULI_INSTANCE_TAG
+-Dliuli.instance.id
+-Dliuli.instance.tag
+```
+
+标签和 PID 会持久化。游戏退出时释放；启动器重启后用 PID 校验并清理失效标签。实例列表据此显示运行状态。
+
+启动前读取 Windows 系统区域或 `LC_ALL` / `LANG`，转换为 Minecraft 语言码并写入实例 `options.txt`。例如 `zh-CN` → `zh_cn`。
+
+### 内容下载
+
+- 浏览 Modrinth 模组、资源包、光影、世界和整合包；
+- 按 Minecraft 版本和加载器过滤；
+- 点击项目进入详情页，可选择具体文件版本安装；
+- 没有匹配实例时可自动创建；
+- Modrinth `.mrpack` 支持一键安装并应用 `overrides` / `client-overrides`；
+- CurseForge 需要配置 API Key，未配置时只展示 Modrinth。
+
+### 会话日志
+
+每次启动写入：
+
+```text
+<数据目录>/logs/session-*.log
+```
+
+记录启动、关闭、HTTP/API 请求、导航、下载/安装阶段、实例创建/删除、启动参数、语言、Java 选择、错误与异常。
+
+- 最多保留最近 10 次会话日志；
+- 安装 / 启动仍有独立的 `install-*.log` / `launch-*.log`；
+- 设置页「打开日志」可直接打开日志目录。
+
+---
 
 ## 快速开始
 
-环境要求：
+### 环境要求
 
-- Node.js **≥ 22.12**（当前开发环境为 Node 24）（仅源码需要，桌面端不用）
-- Windows 10/11（桌面透明版需要 Windows；浏览器版也可在其他系统运行）
-- 一个可用的 Minecraft 游戏目录（默认自动寻找 `%APPDATA%\.minecraft`）
-- Java 运行时（琉璃会自动扫描；不同游戏版本需要 Java 8 / 17 / 21 / 25）
+- Windows 10 / 11；
+- Node.js **≥ 22.12**；
+- 一个可用的 Minecraft 游戏目录；
+- Java 运行时（可由琉璃自动准备）。
 
-最直接的启动方式：双击 **`启动琉璃.bat`**。首次运行会自动安装依赖、构建界面，并打开透明桌面窗口；首次启动桌面版还会准备一份 Electron 运行时（约 250 MB）。
+### 一键启动
 
-手动启动桌面透明版：
+双击：
+
+```text
+启动琉璃.bat
+```
+
+首次运行会安装依赖、构建界面并准备 Electron 运行时（约 250 MB）。
+
+### 手动启动
 
 ```powershell
-cd liuli-launcher
+cd "D:\新建文件夹 (2)\liuli-launcher"
 npm install
 copy .env.example .env
-# 编辑 .env，把 LIULI_GAME_DIR 指向你的 .minecraft
 npm run build
 npm run desktop
 ```
 
+如果项目路径包含中文、括号或空格，桌面脚本会把 Electron 运行时复制到 ASCII 缓存目录后再启动，首次可能多等几秒。
+
 浏览器 / 开发模式：
 
 ```powershell
-npm run dev       # 页面 http://127.0.0.1:5178，本地服务 http://127.0.0.1:43110
-npm start         # 构建后的纯浏览器版，打开 http://127.0.0.1:43110
+npm run dev       # Vite http://127.0.0.1:5178，本地 API http://127.0.0.1:43110
+npm start         # 构建后的浏览器版
 ```
 
-`npm run desktop` 会优先复用已经运行的本地服务；如果服务没有启动，会在 Electron 主进程内启动它。桌面版窗口没有系统标题栏，可用顶部栏拖动，右上角提供截图、最小化、最大化和关闭。
+---
 
-### 本机 `.env` 示例
+## 配置
+
+`.env` 示例：
 
 ```dotenv
-LIULI_GAME_DIR=D:\Games\.minecraft
+LIULI_GAME_DIR=E:\hmcl\.minecraft
 LIULI_PORT=43110
 
-# 可选，开启 CurseForge 内容来源
+# 可选：启用 CurseForge 内容来源
 # CURSEFORGE_API_KEY=
 ```
 
-`.env` 已被 Git 忽略，不会提交到仓库。示例见 `.env.example`。
+`.env` 已被 Git 忽略。
 
-## 功能地图
+运行时数据默认位于项目下 `.liuli-data/`：
 
-| 模块 | 已实现 |
-| --- | --- |
-| 页面 | 主页 / 游戏实例 / 下载中心 / 账户 / 设置 / 关于 |
-| 实例 | 扫描、排序、筛选、搜索、当前实例切换、启动诊断；实例详情包含手动最大内存、版本隔离、游戏设置、模组启停/删除、资源包、光影、世界、文件目录管理 |
-| 启动 | Java 自动匹配、classpath、资源索引、原版/模组实例、log4j、新旧 native 解压、实时日志 |
-| 下载 | Mojang 版本安装、官方 / BMCLAPI / 自动切换；Modrinth 模组、资源包、光影安装；整合包 `.mrpack` 下载 |
-| 内容分类 | 游戏 / 整合包 / 模组 / 资源包 / 光影 / 世界；按实例版本与加载器筛选，中文分类菜单 |
-| 内容来源 | 全部 / CurseForge / Modrinth；设置 `CURSEFORGE_API_KEY` 后 CurseForge 可参与检索 |
-| 账户 | 离线档案、UUID 生成、切换、删除、复制身份 UUID |
-| 外观 | 浅/深玻璃、四种强调色、0–100% 玻璃浓度、0–64 px 连续背景模糊、动效开关、桌面留白 |
-| 壁纸 | 桌面版实时捕获真实桌面后景（含 Lively）；浏览器版跟随 Windows 壁纸、三套内置壁纸、自定义上传 |
-| 桌面壳 | Electron 透明窗口、真实后景屏幕捕获、自身排除、无边框拖拽、窗口控制、窗口截图、单实例本地服务 |
-| 系统 | Java 扫描、内存 / 磁盘状态、游戏目录、本地数据路径、全屏 |
-| 交互 | 命令面板（`Ctrl/Cmd+K`）、通知面板、启动窗口、安装窗口、Toast |
+```text
+.liuli-data/
+├─ config.json               # 游戏设置、离线账户、启动历史
+├─ cache/                    # 版本清单与 Java 缓存
+├─ logs/                     # session / install / launch 日志
+├─ natives/                  # 每次启动解压的 native 库
+└─ instance-process-tags.json
+```
 
-## 透明的两种实现
-
-### 桌面透明版（推荐）
-
-普通浏览器不能创建透明窗口，而 Windows 的亚克力/云母材质又不能调节模糊半径。琉璃因此采用 **排除自身的实时屏幕捕获 + CSS 模糊**：
-
-1. 创建一个完全透明的无边框 `BrowserWindow`，不使用任何原生背景材质；
-2. 在请求屏幕捕获前调用 `setContentProtection(true)`，让琉璃窗口从屏幕捕获结果中排除；
-3. 通过 `desktopCapturer` + `getUserMedia` 捕获当前显示器，得到窗口后方的真实桌面；
-4. 把捕获画面按屏幕坐标对齐放在玻璃面板下方，再用 CSS `filter: blur()` 提供连续 0–64 px 模糊；
-5. 窗口本身保持透明，CSS 圆角、边框和透明四角直接构成窗口外观，因此没有方形亚克力底；
-6. 关闭“实时桌面背景”后停止捕获并恢复静态壁纸，方便截图和录屏。
-
-这会让玻璃后面出现的确实是 **窗口后方的桌面与 Lively**，不是视频副本；捕获延迟通常只有一帧左右。代价是：实时背景开启时，琉璃窗口会从其他应用的屏幕截图/录屏中排除。需要分享琉璃画面时，用顶部栏的相机按钮保存窗口截图；或者在设置里暂时关闭“实时桌面背景”。
-
-### 浏览器版：桌面壁纸桥接
-
-如果直接运行 `npm start` 或在 `npm run dev` 中打开网页，浏览器仍然是不透明窗口。此时琉璃会读取 Windows 当前桌面壁纸文件（`TranscodedWallpaper`）作为底层画面，再用玻璃层透出它。它能看到壁纸，但无法显示 Lively 的动态画面，也无法透出桌面图标与其他窗口。
-
-如果系统没有可读取的壁纸，浏览器版会自动回退到内置的「极光山谷」。
+---
 
 ## 目录结构
 
 ```text
 liuli-launcher/
-├─ electron/                 # 透明桌面壳
-│  ├─ main.mjs               # BrowserWindow、内置服务、窗口控制
-│  └─ preload.cjs            # 安全的窗口控制 / 状态 IPC 桥
-├─ server/                   # 本地 Node 服务（无框架）
-│  ├─ index.mjs              # HTTP 路由、安全限制、静态文件
-│  ├─ discovery.mjs          # 实例/世界/截图/Java/系统/壁纸扫描
-│  ├─ launcher.mjs           # 版本 JSON、规则、native、启动任务
-│  ├─ install.mjs            # Mojang 版本下载安装、官方/镜像回退
-│  ├─ content.mjs            # Modrinth/CurseForge 内容检索与安装
-│  ├─ remote.mjs             # 版本清单缓存
+├─ electron/
+│  ├─ main.mjs               # 透明窗口、内置服务、屏幕捕获
+│  └─ preload.cjs            # 窗口控制 IPC
+├─ server/
+│  ├─ index.mjs              # HTTP 路由与安全限制
+│  ├─ discovery.mjs          # 实例 / Java / 世界 / 系统扫描
+│  ├─ launcher.mjs           # 启动参数、classpath、native、进程标签
+│  ├─ install.mjs            # 原版下载安装与完整性修复
+│  ├─ loader-install.mjs     # Fabric / Quilt / Forge / NeoForge / OptiFine
+│  ├─ instance-create.mjs    # 新建实例任务
+│  ├─ instance-flatten.mjs   # 合并 base / loader、隐藏前置
+│  ├─ instance-delete.mjs    # 删除实例与依赖清理
+│  ├─ instance-tags.mjs      # 进程标签
+│  ├─ game-language.mjs      # 系统语言 → Minecraft 语言
+│  ├─ session-log.mjs        # 会话日志与轮转
+│  ├─ content.mjs            # Modrinth / CurseForge 内容
+│  ├─ modpack-install.mjs    # .mrpack 安装
 │  └─ config.mjs             # 本地配置与离线账户
 ├─ src/
-│  ├─ components/            # 玻璃组件、内容浏览器、像素头像、体素插画
-│  ├─ pages/                 # 六个主页面
-│  ├─ overlays/              # 命令面板 / 实例详情 / 启动 / 安装 / 添加账户
-│  ├─ lib/                   # API、类型格式化、偏好、演示数据、内容分类
-│  └─ styles/                # tokens / glass / components / pages / overlays
-├─ public/media/             # Logo、噪声纹理、三套 SVG 壁纸
-├─ scripts/                  # 桌面启动器、运行时准备、壁纸生成、截图
-├─ .env.example
+│  ├─ components/            # 玻璃组件、下载中心、内容浏览器
+│  ├─ pages/                 # 主页 / 实例 / 下载 / 账户 / 设置 / 关于
+│  ├─ overlays/              # 命令面板 / 实例详情 / 启动 / 新建实例
+│  ├─ lib/                   # API、格式化、偏好、内容分类
+│  └─ styles/                # tokens / glass / components / pages
+├─ scripts/
+│  └─ desktop.mjs            # 准备 Electron 运行时并启动桌面版
+├─ packaging/
+│  ├─ build-installer.ps1    # WiX MSI 构建
+│  └─ sign.ps1               # exe / MSI 签名
+├─ public/media/             # Logo、壁纸、噪声纹理
+├─ 启动琉璃.bat
 └─ package.json
 ```
 
-运行时数据（默认 `.liuli-data/`）：
+---
 
-```text
-.liuli-data/
-├─ config.json               # 游戏设置、离线账户、启动历史
-├─ cache/                    # Mojang 版本清单与版本详情缓存
-├─ logs/                     # 启动日志、安装日志
-└─ natives/                  # 每次启动解压的 native 库
+## 打包与签名
+
+```powershell
+npm run package:win
 ```
 
-## HMCL 参考与差异
+生成：
 
-参考的部分：
+```text
+release/Liuli-Launcher-1.0.0-x64.msi
+```
 
-- 多版本实例模型与“版本隔离”语义；
-- 通过 `.hmcl` / 游戏数据目录识别独立版本；
-- Java 运行时发现与版本要求匹配；
-- 从版本 JSON 构建 JVM/游戏参数、classpath 与 native 目录；
-- 官方版本清单与资源 CDN 的下载路径。
+安装范围是当前用户，默认安装到：
 
-为适配网页形态而修改 / 未实现的部分：
+```text
+%LOCALAPPDATA%\Programs\Liuli Launcher
+```
 
-- 使用浏览器 / Electron + 本地 HTTP 服务替代 JavaFX；
-- 仅提供离线档案，不实现 Microsoft OAuth / authlib-injector 在线认证；
-- 原版安装与 Modrinth 内容安装已接入；Fabric / Forge / NeoForge 加载器本身仍建议用 HMCL 安装，整合包下载为 `.mrpack` 后交由 HMCL 导入；
-- CurseForge 官方 API 需要 Key，未配置时只展示 Modrinth 结果；不会内置或借用他人的 Key；
-- 不做 HMCL 云同步、崩溃分析、在线账户等完整 HMCL 功能。
+MSI 和 `Liuli Launcher.exe` 使用 `CN=DeepSeek` 自签名代码证书，并附带 RFC3161 时间戳。证书公钥：
 
-琉璃与 HMCL 官方无隶属关系，Minecraft 是 Mojang Studios 的商标。
+```text
+release/DeepSeek-CodeSigning.cer
+```
+
+这是自签名证书，不是公共 CA 证书：
+
+- 本机导入 `CurrentUser\Root` / `TrustedPublisher` 后验证为 Valid；
+- 其他机器需要手动导入 `.cer`；
+- 公共 SmartScreen 仍可能提示未知发布者。
+
+---
 
 ## 已知限制
 
-- 启动依赖本机已有 Java 和完整依赖；缺失依赖时会给出提示，请先用 HMCL 补全。
-- 网页版不能创建透明窗口；真正的 Lively 动态透出请使用 `npm run desktop` / `启动琉璃.bat`。
-- 实时桌面背景使用屏幕捕获，并读取当前显示器的刷新率作为捕获上限（例如 60Hz / 144Hz / 165Hz）；窗口拖动时背景按同一刷新率跟随窗口。默认最多捕获 1920×1080；在 4K / 高刷屏上会有相应 GPU/CPU 占用。
-- 如果显示器刷新率没有被 Electron 正确报告，会回退到 60Hz；可以在设置页的“检测到 N Hz”提示中确认当前值。
-- 绘制桌面光标时使用自绘箭头，避免系统光标被屏幕捕获进背景；如果不需要自绘光标，可以关闭实时桌面背景。
-- **实时背景开启时，系统截图和录屏不会包含琉璃窗口本身**（这是排除自身、避免递归捕获的必要条件）。顶部栏相机按钮可以保存包含实时背景的窗口截图；设置中关闭“实时桌面背景”则会回退到静态壁纸，方便外部截图。
-- 屏幕捕获失败或用户关闭实时背景时，会显示 Windows 静态壁纸并保留模糊滑杆，不会出现黑屏。
-- 在多显示器环境中默认捕获琉璃窗口所在显示器；移动窗口后捕获源不会自动切换，重新开关实时背景即可。
-- 实例的最大内存与版本隔离保存在实例目录的 `.liuli-instance.json` 中；版本隔离只改变后续使用的游戏目录，不会自动迁移已有的世界、模组或资源包。
-- 屏幕捕获 API 只能读取整块显示器，因此“只渲染窗口区域”发生在窗口内的渲染阶段（`object-view-box` 裁剪），而不是捕获源本身；这样不会把整张桌面缩放进窗口显示。
-- 若项目路径包含中文或括号，桌面启动脚本会把 Electron 运行时复制到 ASCII 缓存目录再运行，首次启动会慢几秒。
-- 仅提供离线档案；正版服务器需要在线验证时无法用离线档案进入。
-- 极老版本（如 1.0）的虚拟资源目录尚未完全处理，下载可完成，启动兼容性未覆盖。
-- 安装/启动会写入你选择的游戏目录；请确认服务以有权限的用户身份运行。
-- CurseForge 内容来源需要 `.env` 中的 `CURSEFORGE_API_KEY`；未配置时「全部」只返回 Modrinth 结果。
+- 仅提供离线账户；不实现 Microsoft OAuth / authlib-injector 在线认证，正版服务器需要在线验证时无法用离线账户进入。
+- 实时桌面背景依赖屏幕捕获，无法在普通浏览器中实现；网页版只能读取静态壁纸。
+- 实时背景开启时，琉璃窗口会从外部截图 / 录屏中排除；需要分享窗口时使用顶部相机按钮，或关闭实时背景。
+- 多显示器捕获以窗口所在显示器为准；屏幕捕获上限默认 1920×1080，4K / 高刷屏会增加 GPU/CPU 占用。
+- 实例合并只合并版本 JSON 和 client jar；`libraries/`、`assets/` 仍共享，不会为每个实例复制完整资源。
+- base / loader 文件夹仍保留在磁盘上供其他实例复用，只是从实例列表隐藏。
+- CurseForge 需要 API Key；未配置时只显示 Modrinth。
+- Forge / NeoForge / OptiFine 依赖官方或 BMCLAPI 网络；网络受限时可能失败或需要重试。
+- OptiFine 只在 BMCLAPI 有对应版本时可用；某些 Minecraft 版本没有发布版或预览版。
+- 如果 Java 目录被 ReShade / DLSS 注入，启动器会尽量切换到干净 Java；仍可能因 addon 与具体模组不兼容而崩溃。
+- 极老版本（如 1.0）的虚拟资源目录启动兼容性未完全覆盖。
+- 会话日志最多保留 10 份；日志为本地明文，可能包含本机路径和项目名。
+- 自签名 MSI 在未导入证书的机器上仍会显示未知发布者。
+
+---
+
+## HMCL 参考与说明
+
+琉璃的实例模型、版本隔离、Java 匹配、依赖解析和启动参数构建参考了 HMCL 的公开设计；前端和本地内核均为本项目原创实现，不包含 HMCL 的 Java 源码或 JAR。
+
+OptiFine 安装流程参考 HMCL 的组件方式：
+
+- OptiFine 版本列表；
+- installer 下载；
+- `optifine.Patcher`；
+- OptiFine library；
+- launchwrapper；
+- wrapper JSON 与 `--tweakClass optifine.OptiFineTweaker`。
+
+琉璃与 HMCL 官方无隶属关系。
+
+---
 
 ## 开发命令
 
@@ -193,20 +306,24 @@ liuli-launcher/
 npm run dev            # Vite + API 热开发
 npm run check          # TypeScript 检查
 npm run build          # 生产构建
-npm start              # 浏览器版：服务 dist + API
-npm run desktop        # 透明桌面版（自动准备 Electron 运行时）
+npm start              # 浏览器版
+npm run desktop        # 透明桌面版
 npm run desktop:build  # 构建后启动透明桌面版
 npm run capture        # Playwright 截图（需要本机 Edge）
+npm run package:win    # 构建并签名 MSI
 ```
+
+---
 
 ## 许可与致谢
 
 本项目代码使用 **MIT License**。
 
-- [HMCL · Hello Minecraft! Launcher](https://github.com/HMCL-dev/HMCL) — 功能地图、版本模型与启动思路参考；GPL-3.0。
-- [Apple Liquid Glass](https://www.apple.com/) — 视觉语言灵感。
-- React / Vite / Node.js / Electron / Lucide / adm-zip — 开源工具链。
-- Mojang launchermeta / resources CDN — 官方版本数据。
-- Modrinth API — 社区模组、资源包、光影与整合包数据；CurseForge 为其独立服务。
+- [HMCL](https://github.com/HMCL-dev/HMCL) — 实例模型与安装流程参考；
+- Apple Liquid Glass — 视觉语言灵感；
+- React / Vite / Node.js / Electron / Lucide / adm-zip — 工具链；
+- Mojang launchermeta / resources CDN — 官方版本数据；
+- Modrinth API — 社区模组、资源包、光影与整合包数据；
+- BMCLAPI — 下载镜像与 OptiFine / NeoForge 元数据回退。
 
-没有 HMCL、Minecraft 的代码、二进制或官方素材被打包进本仓库。
+Minecraft 是 Mojang Studios 的商标。本项目与 Mojang、Microsoft、HMCL 官方均无隶属关系。
